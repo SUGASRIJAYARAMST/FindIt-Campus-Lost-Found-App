@@ -253,6 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Timer? _referralTimer;
+  VoidCallback? _setReferralSheetState;
 
   void _showReferralCodeSheet() {
     if (!mounted) return;
@@ -267,11 +268,11 @@ class _HomeScreenState extends State<HomeScreen> {
         timer.cancel();
         _referralRemaining = 300;
         _referralMinimized = false;
-        if (mounted) setState(() {});
+        _setReferralSheetState?.call();
         return;
       }
       _referralRemaining--;
-      if (mounted) setState(() {});
+      _setReferralSheetState?.call();
     });
 
     showDialog(
@@ -280,6 +281,9 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
+            _setReferralSheetState = () {
+              if (ctx.mounted) setSheetState(() {});
+            };
             final minutes = _referralRemaining ~/ 60;
             final seconds = _referralRemaining % 60;
 
@@ -491,6 +495,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     ).whenComplete(() {
       _referralTimer?.cancel();
+      _setReferralSheetState = null;
     });
   }
 
