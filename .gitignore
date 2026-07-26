@@ -64,3 +64,5 @@ functions/.env
 *.jks
 *.p12
 *.pem
+
+.env
