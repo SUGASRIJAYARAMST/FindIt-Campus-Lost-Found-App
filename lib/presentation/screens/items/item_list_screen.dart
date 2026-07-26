@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/item_provider.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/services/matching_service.dart';
@@ -55,8 +54,7 @@ class _ItemListScreenState extends State<ItemListScreen> with SingleTickerProvid
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = context.read<AuthProvider>();
-      context.read<ItemProvider>().startListening(currentUid: authProvider.user?.uid);
+      context.read<ItemProvider>().startListening();
       if (widget.autoFocus) {
         _searchFocusNode.requestFocus();
         widget.onAutoFocusDone?.call();
@@ -558,8 +556,7 @@ class _ItemListScreenState extends State<ItemListScreen> with SingleTickerProvid
 
     return RefreshIndicator(
       onRefresh: () async {
-        final ap = context.read<AuthProvider>();
-        provider.startListening(currentUid: ap.user?.uid);
+        provider.startListening();
       },
       color: theme.colorScheme.primary,
       child: ListView.builder(

@@ -15,6 +15,7 @@ class UserModel {
   final String referredBy;
   final int referralCount;
   final DateTime? createdAt;
+  final bool notificationsEnabled;
 
   UserModel({
     required this.uid,
@@ -31,6 +32,7 @@ class UserModel {
     this.referredBy = '',
     this.referralCount = 0,
     this.createdAt,
+    this.notificationsEnabled = true,
   });
 
   bool get isBlocked => status == 'blocked';
@@ -51,6 +53,7 @@ class UserModel {
       'referredBy': referredBy,
       'referralCount': referralCount,
       'createdAt': FieldValue.serverTimestamp(),
+      'notificationsEnabled': notificationsEnabled,
     };
   }
 
@@ -72,6 +75,7 @@ class UserModel {
       createdAt: map['createdAt'] is Timestamp
           ? (map['createdAt'] as Timestamp).toDate()
           : null,
+      notificationsEnabled: map['notificationsEnabled'] as bool? ?? true,
     );
   }
 
@@ -90,6 +94,7 @@ class UserModel {
     String? referredBy,
     int? referralCount,
     DateTime? createdAt,
+    bool? notificationsEnabled,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -106,6 +111,7 @@ class UserModel {
       referredBy: referredBy ?? this.referredBy,
       referralCount: referralCount ?? this.referralCount,
       createdAt: createdAt ?? this.createdAt,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
     );
   }
 }

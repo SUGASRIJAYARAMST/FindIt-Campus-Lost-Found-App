@@ -258,7 +258,10 @@ void main() {
           lostItems: [_lostItem('aaa')],
           foundItems: [_foundItem('zzz')],
         );
-        expect(results.first.score, lessThan(80));
+        // Either no match at all, or score is low
+        if (results.isNotEmpty) {
+          expect(results.first.score, lessThan(80));
+        }
       });
     });
 

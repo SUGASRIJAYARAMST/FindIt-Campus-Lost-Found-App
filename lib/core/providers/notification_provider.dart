@@ -11,6 +11,7 @@ class NotificationProvider extends ChangeNotifier {
   bool _isInitialized = false;
   bool _isEnabled = true;
   int _unreadCount = 0;
+  String? _currentUid;
   StreamSubscription<QuerySnapshot>? _unreadSub;
 
   NotificationProvider({required this.notificationService});
@@ -22,9 +23,11 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> initialize(String uid) async {
     if (_isInitialized) return;
     try {
+      _currentUid = uid;
       await notificationService.initialize();
       await notificationService.saveTokenToFirestore(uid);
       await notificationService.cleanupOldNotifications();
+      await _loadNotificationPreference(uid);
       _isInitialized = true;
       _startUnreadListener(uid);
       notifyListeners();
@@ -33,19 +36,34 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _loadNotificationPreference(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        _isEnabled = doc.data()!['notificationsEnabled'] as bool? ?? true;
+      }
+    } catch (e) {
+      debugPrint('Error loading notification preference: $e');
+    }
+  }
+
   void _startUnreadListener(String uid) {
     _unreadSub?.cancel();
-    _unreadSub = FirebaseFirestore.instance
-        .collection('notifications')
-        .where('uid', isEqualTo: uid)
-        .snapshots()
-        .listen((snapshot) {
-      _unreadCount = snapshot.docs.where((doc) {
-        final data = doc.data();
-        return data['read'] == false;
-      }).length;
-      notifyListeners();
-    });
+    try {
+      _unreadSub = FirebaseFirestore.instance
+          .collection('notifications')
+          .where('uid', isEqualTo: uid)
+          .snapshots()
+          .listen((snapshot) {
+        _unreadCount = snapshot.docs.where((doc) {
+          final data = doc.data();
+          return data['read'] == false;
+        }).length;
+        notifyListeners();
+      });
+    } catch (e) {
+      debugPrint('Failed to subscribe notifications: $e');
+    }
   }
 
   void stopListening() {
@@ -57,6 +75,17 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> toggleNotifications(bool enabled) async {
     _isEnabled = enabled;
     notifyListeners();
+
+    if (_currentUid != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_currentUid)
+            .set({'notificationsEnabled': enabled}, SetOptions(merge: true));
+      } catch (e) {
+        debugPrint('Error saving notification preference: $e');
+      }
+    }
   }
 
   Future<void> sendItemMatchNotification({

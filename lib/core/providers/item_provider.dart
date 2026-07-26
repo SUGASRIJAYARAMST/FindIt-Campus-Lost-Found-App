@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/models/item_model.dart';
 import '../services/cloudinary_service.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 import '../services/reward_service.dart';
 import '../services/timeline_service.dart';
 
@@ -14,6 +15,7 @@ class ItemProvider extends ChangeNotifier {
   final CloudinaryService cloudinaryService;
   final RewardService rewardService;
   final TimelineService? timelineService;
+  final NotificationService? notificationService;
 
   List<ItemModel> _items = [];
   List<ItemModel> _myItems = [];
@@ -28,6 +30,7 @@ class ItemProvider extends ChangeNotifier {
     required this.cloudinaryService,
     required this.rewardService,
     this.timelineService,
+    this.notificationService,
   });
 
   List<ItemModel> get items => _items;
@@ -47,40 +50,41 @@ class ItemProvider extends ChangeNotifier {
   List<ItemModel> get foundItems =>
       _items.where((i) => i.type == 'found').toList();
 
-  void startListening({String? currentUid}) {
+  void startListening() {
     _itemsSub?.cancel();
-    _itemsSub = firestoreService
-        .collection('items')
-        .snapshots()
-        .listen(
-      (snapshot) {
-        debugPrint('Items stream: ${snapshot.docs.length} docs');
-        _items = snapshot.docs
-            .map((doc) => ItemModel.fromMap({
-                  'id': doc.id,
-                  ...doc.data() as Map<String, dynamic>,
-                }))
-            .toList();
-        _items.sort((a, b) {
-          final aDate = a.createdAt;
-          final bDate = b.createdAt;
-          if (aDate == null && bDate == null) return 0;
-          if (aDate == null) return 1;
-          if (bDate == null) return -1;
-          return bDate.compareTo(aDate);
-        });
-        _errorMessage = null;
-        notifyListeners();
-        if (_items.isEmpty && currentUid != null) {
-          _seedDemoItems(currentUid);
-        }
-      },
-      onError: (error) {
-        debugPrint('Items stream error: $error');
-        _errorMessage = 'Failed to load items.';
-        notifyListeners();
-      },
-    );
+    try {
+      _itemsSub = firestoreService
+          .collection('items')
+          .snapshots()
+          .listen(
+        (snapshot) {
+          debugPrint('Items stream: ${snapshot.docs.length} docs');
+          _items = snapshot.docs
+              .map((doc) => ItemModel.fromMap({
+                    'id': doc.id,
+                    ...doc.data() as Map<String, dynamic>,
+                  }))
+              .toList();
+          _items.sort((a, b) {
+            final aDate = a.createdAt;
+            final bDate = b.createdAt;
+            if (aDate == null && bDate == null) return 0;
+            if (aDate == null) return 1;
+            if (bDate == null) return -1;
+            return bDate.compareTo(aDate);
+          });
+          _errorMessage = null;
+          notifyListeners();
+        },
+        onError: (error) {
+          debugPrint('Items stream error: $error');
+          _errorMessage = 'Failed to load items.';
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      debugPrint('Failed to subscribe items: $e');
+    }
 
     fetchItems();
   }
@@ -118,89 +122,169 @@ class ItemProvider extends ChangeNotifier {
     }
   }
 
-  bool _hasSeeded = false;
-
-  Future<void> _seedDemoItems(String currentUid) async {
-    if (_hasSeeded) return;
-    _hasSeeded = true;
-
-    final now = DateTime.now();
-    final demoItems = <Map<String, dynamic>>[
-      {
-        'title': 'Blue Campus ID Card',
-        'category': 'ID Cards',
-        'description': 'Lost my university ID card with student name and photo. Blue lanyard attached.',
-        'location': 'College of Arts',
-        'itemDate': Timestamp.fromDate(now.subtract(const Duration(hours: 2))),
-        'imageUrl': '',
-        'contactNumber': '09123456789',
-        'type': 'lost',
-        'status': 'lost',
-        'createdBy': 'Demo Student',
-        'createdByUid': currentUid,
-        'createdAt': Timestamp.fromDate(now.subtract(const Duration(hours: 2))),
-      },
-      {
-        'title': 'Black Backpack',
-        'category': 'Bags',
-        'description': 'Black Jansport backpack containing notebooks and laptop charger.',
-        'location': 'Science Building',
-        'itemDate': Timestamp.fromDate(now.subtract(const Duration(days: 1))),
-        'imageUrl': '',
-        'contactNumber': '09123456790',
-        'type': 'lost',
-        'status': 'lost',
-        'createdBy': 'Demo Student',
-        'createdByUid': currentUid,
-        'createdAt': Timestamp.fromDate(now.subtract(const Duration(days: 1))),
-      },
-      {
-        'title': 'Silver Water Bottle',
-        'category': 'Accessories',
-        'description': 'Found a silver Hydro Flask water bottle near the library entrance.',
-        'location': 'Library',
-        'itemDate': Timestamp.fromDate(now),
-        'imageUrl': '',
-        'contactNumber': '09123456791',
-        'type': 'found',
-        'status': 'found',
-        'createdBy': 'Demo Finder',
-        'createdByUid': currentUid,
-        'createdAt': Timestamp.fromDate(now.subtract(const Duration(hours: 5))),
-      },
-      {
-        'title': 'Campus Hoodie',
-        'category': 'Clothing',
-        'description': 'Found a navy blue campus hoodie with university logo, size L.',
-        'location': 'Cafeteria',
-        'itemDate': Timestamp.fromDate(now.subtract(const Duration(days: 1))),
-        'imageUrl': '',
-        'contactNumber': '09123456792',
-        'type': 'found',
-        'status': 'found',
-        'createdBy': 'Demo Finder',
-        'createdByUid': currentUid,
-        'createdAt': Timestamp.fromDate(now.subtract(const Duration(days: 1, hours: 3))),
-      },
-    ];
-
-    try {
-      for (int i = 0; i < demoItems.length; i++) {
-        final docRef = firestoreService.collection('items').doc();
-        demoItems[i]['id'] = docRef.id;
-        await docRef.set(demoItems[i]);
-      }
-      debugPrint('Demo items seeded successfully');
-    } catch (e) {
-      _hasSeeded = false;
-      debugPrint('Error seeding demo items: $e');
-    }
-  }
-
   void stopListening() {
     _itemsSub?.cancel();
     _itemsSub = null;
   }
+
+  // Future<int> cleanupSeedItems() async {
+  //   int deletedCount = 0;
+  //   try {
+  //     final snapshot = await firestoreService.collection('items').get();
+  //     for (final doc in snapshot.docs) {
+  //       final data = doc.data() as Map<String, dynamic>;
+  //       final createdByUid = data['createdByUid'] as String? ?? '';
+  //       if (createdByUid.startsWith('seed_user_')) {
+  //         await firestoreService.deleteData('items', doc.id);
+  //         deletedCount++;
+  //         debugPrint('Deleted seed item: ${doc.id} (createdByUid: $createdByUid)');
+  //       }
+  //     }
+  //     debugPrint('Seed items cleanup complete: $deletedCount items deleted');
+  //     await fetchItems();
+  //   } catch (e) {
+  //     debugPrint('Error cleaning up seed items: $e');
+  //   }
+  //   return deletedCount;
+  // }
+
+  // Future<void> seedMatchTestData() async {
+  //   try {
+  //     final existing = await firestoreService.collection('items').get();
+  //     final seedCount = existing.docs.where((doc) {
+  //       final data = doc.data() as Map<String, dynamic>;
+  //       return (data['createdByUid'] as String? ?? '').startsWith('seed_user_');
+  //     }).length;
+  //     if (seedCount >= 8) return;
+  //
+  //     final now = DateTime.now();
+  //     final seedUid = 'seed_user_match_test';
+  //     final seedItems = <Map<String, dynamic>>[
+  //       {
+  //         'title': 'Dell Laptop',
+  //         'category': 'Electronics',
+  //         'description': 'Black Dell Inspiron laptop lost near library. Has a sticker on the lid.',
+  //         'location': 'Library',
+  //         'itemDate': Timestamp.fromDate(now.subtract(const Duration(days: 1))),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543210',
+  //         'type': 'lost',
+  //         'status': 'lost',
+  //         'createdBy': 'Seed User',
+  //         'createdByUid': seedUid,
+  //         'createdAt': Timestamp.fromDate(now.subtract(const Duration(days: 1))),
+  //       },
+  //       {
+  //         'title': 'Black Dell Laptop',
+  //         'category': 'Electronics',
+  //         'description': 'Found a black Dell laptop near cafe area. Power adapter included.',
+  //         'location': 'Near Cafe',
+  //         'itemDate': Timestamp.fromDate(now),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543211',
+  //         'type': 'found',
+  //         'status': 'found',
+  //         'createdBy': 'Seed Finder',
+  //         'createdByUid': '${seedUid}_founder',
+  //         'createdAt': Timestamp.fromDate(now),
+  //       },
+  //       {
+  //         'title': 'Blue Backpack',
+  //         'category': 'Bags',
+  //         'description': 'Lost my blue Jansport backpack with books and laptop charger inside.',
+  //         'location': 'CSE Block',
+  //         'itemDate': Timestamp.fromDate(now.subtract(const Duration(hours: 6))),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543212',
+  //         'type': 'lost',
+  //         'status': 'lost',
+  //         'createdBy': 'Seed User',
+  //         'createdByUid': seedUid,
+  //         'createdAt': Timestamp.fromDate(now.subtract(const Duration(hours: 6))),
+  //       },
+  //       {
+  //         'title': 'Blue Jansport Bag',
+  //         'category': 'Bags',
+  //         'description': 'Found a blue Jansport backpack in CSE Block hallway. Contains notebooks.',
+  //         'location': 'CSE Block',
+  //         'itemDate': Timestamp.fromDate(now.subtract(const Duration(hours: 3))),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543213',
+  //         'type': 'found',
+  //         'status': 'found',
+  //         'createdBy': 'Seed Finder',
+  //         'createdByUid': '${seedUid}_founder',
+  //         'createdAt': Timestamp.fromDate(now.subtract(const Duration(hours: 3))),
+  //       },
+  //       {
+  //         'title': 'Student ID Card',
+  //         'category': 'ID Cards',
+  //         'description': 'Lost my college ID card with name Ravi. Blue lanyard attached.',
+  //         'location': 'Main Gate',
+  //         'itemDate': Timestamp.fromDate(now.subtract(const Duration(days: 2))),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543214',
+  //         'type': 'lost',
+  //         'status': 'lost',
+  //         'createdBy': 'Seed User',
+  //         'createdByUid': seedUid,
+  //         'createdAt': Timestamp.fromDate(now.subtract(const Duration(days: 2))),
+  //       },
+  //       {
+  //         'title': 'College ID Card Found',
+  //         'category': 'ID Cards',
+  //         'description': 'Found an ID card near main gate. Student name appears to be Ravi.',
+  //         'location': 'Main Gate',
+  //         'itemDate': Timestamp.fromDate(now.subtract(const Duration(days: 1, hours: 12))),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543215',
+  //         'type': 'found',
+  //         'status': 'found',
+  //         'createdBy': 'Seed Finder',
+  //         'createdByUid': '${seedUid}_founder',
+  //         'createdAt': Timestamp.fromDate(now.subtract(const Duration(days: 1, hours: 12))),
+  //       },
+  //       {
+  //         'title': 'Silver Watch',
+  //         'category': 'Accessories',
+  //         'description': 'Lost a silver Casio watch near the cafeteria. Has a metal band.',
+  //         'location': 'Cafeteria',
+  //         'itemDate': Timestamp.fromDate(now.subtract(const Duration(days: 3))),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543216',
+  //         'type': 'lost',
+  //         'status': 'lost',
+  //         'createdBy': 'Seed User',
+  //         'createdByUid': seedUid,
+  //         'createdAt': Timestamp.fromDate(now.subtract(const Duration(days: 3))),
+  //       },
+  //       {
+  //         'title': 'Silver Casio Watch',
+  //         'category': 'Accessories',
+  //         'description': 'Found a silver Casio wristwatch with metal band near the cafeteria.',
+  //         'location': 'Cafeteria',
+  //         'itemDate': Timestamp.fromDate(now.subtract(const Duration(days: 2))),
+  //         'imageUrl': '',
+  //         'contactNumber': '9876543217',
+  //         'type': 'found',
+  //         'status': 'found',
+  //         'createdBy': 'Seed Finder',
+  //         'createdByUid': '${seedUid}_founder',
+  //         'createdAt': Timestamp.fromDate(now.subtract(const Duration(days: 2))),
+  //       },
+  //     ];
+  //
+  //     for (final item in seedItems) {
+  //       final docRef = firestoreService.collection('items').doc();
+  //       item['id'] = docRef.id;
+  //       await docRef.set(item);
+  //     }
+  //     debugPrint('Match test data seeded: ${seedItems.length} items');
+  //     await fetchItems();
+  //   } catch (e) {
+  //     debugPrint('Error seeding match test data: $e');
+  //   }
+  // }
 
   Future<void> loadMyItems(String uid) async {
     _isLoading = true;
@@ -244,6 +328,17 @@ class ItemProvider extends ChangeNotifier {
         final item = ItemModel.fromMap({
           'id': doc.id,
           ...doc.data() as Map<String, dynamic>,
+        });
+        _selectedItem = item;
+        notifyListeners();
+        return item;
+      }
+
+      final archivedDoc = await firestoreService.document('archived_items', id);
+      if (archivedDoc.exists && archivedDoc.data() != null) {
+        final item = ItemModel.fromMap({
+          'id': archivedDoc.id,
+          ...archivedDoc.data() as Map<String, dynamic>,
         });
         _selectedItem = item;
         notifyListeners();
@@ -524,14 +619,23 @@ class ItemProvider extends ChangeNotifier {
 
   Future<void> _notifyUser(String uid, String title, String body, String type) async {
     try {
-      await firestoreService.addData('notifications', {
-        'uid': uid,
-        'title': title,
-        'body': body,
-        'type': type,
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      if (notificationService != null) {
+        await notificationService!.sendNotificationToUser(
+          targetUid: uid,
+          title: title,
+          body: body,
+          data: {'type': type},
+        );
+      } else {
+        await firestoreService.addData('notifications', {
+          'uid': uid,
+          'title': title,
+          'body': body,
+          'type': type,
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
     } catch (e) {
       debugPrint('Error writing notification: $e');
     }

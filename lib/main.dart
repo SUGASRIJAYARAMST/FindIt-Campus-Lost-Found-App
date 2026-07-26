@@ -141,6 +141,7 @@ class _FindItAppState extends State<FindItApp> {
             cloudinaryService: context.read<CloudinaryService>(),
             rewardService: context.read<RewardService>(),
             timelineService: context.read<TimelineService>(),
+            notificationService: context.read<NotificationService>(),
           ),
         ),
         ChangeNotifierProvider(

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../../core/providers/item_provider.dart';
 import '../../../core/providers/matching_provider.dart';
 import '../../../core/routes/app_router.dart';
 import '../../../core/services/matching_service.dart';
@@ -62,17 +61,41 @@ class _MatchingScreenState extends State<MatchingScreen> {
               child: Icon(Icons.auto_awesome_rounded, color: theme.colorScheme.primary, size: 22),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => matchingProvider.runManualMatch(),
-          ),
+          if (matchingProvider.isMatching)
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded),
+              onPressed: () => matchingProvider.runManualMatch(),
+            ),
         ],
       ),
       body: matchingProvider.isMatching && matchingProvider.matches.isEmpty
           ? _buildLoadingState(theme, isDark)
           : matchingProvider.matches.isEmpty
-              ? _buildEmptyState(context, theme, isDark)
-              : _buildMatchList(matchingProvider, theme, isDark),
+              ? RefreshIndicator(
+                  onRefresh: () async => matchingProvider.runManualMatch(),
+                  color: theme.colorScheme.primary,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+                      _buildEmptyState(context, theme, isDark),
+                    ],
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () async => matchingProvider.runManualMatch(),
+                  color: theme.colorScheme.primary,
+                  child: _buildMatchList(matchingProvider, theme, isDark),
+                ),
     );
   }
 
@@ -393,7 +416,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
           child: filtered.isEmpty
               ? _buildNoMatchFilterState(isDark, theme)
               : ListView.builder(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
@@ -1449,8 +1472,8 @@ class _MatchingScreenState extends State<MatchingScreen> {
   }
 
   void _runAISearch(BuildContext context, ThemeData theme, bool isDark, String name, String description, String category, DateTime? date) {
-    final itemProvider = context.read<ItemProvider>();
-    final foundItems = itemProvider.foundItems.where((i) => i.status == 'found').toList();
+    final matchingProvider = context.read<MatchingProvider>();
+    final foundItems = matchingProvider.foundItems;
 
     if (foundItems.isEmpty) {
       showDialog(
@@ -1485,6 +1508,7 @@ class _MatchingScreenState extends State<MatchingScreen> {
       item: searchItem,
       oppositeItems: foundItems,
       maxResults: 10,
+      minScore: 10,
     );
 
     _showAIResultsDialog(context, theme, isDark, name, results);

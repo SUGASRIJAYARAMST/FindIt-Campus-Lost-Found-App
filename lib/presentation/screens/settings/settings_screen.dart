@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/language_provider.dart';
+import '../../../core/providers/notification_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/routes/app_router.dart';
@@ -42,6 +43,8 @@ class SettingsScreen extends StatelessWidget {
                 _SettingsItem(Icons.notifications_outlined, loc.notifications, () => Navigator.pushNamed(context, AppRouter.notifications)),
               ],
             ),
+            const SizedBox(height: 12),
+            _buildNotificationToggle(theme, isDark, context),
             const SizedBox(height: 24),
             _buildSectionHeader(theme, isDark, loc.app),
             _buildSettingsCard(
@@ -83,6 +86,63 @@ class SettingsScreen extends StatelessWidget {
           fontWeight: FontWeight.w800,
           fontSize: 16,
           color: isDark ? Colors.white70 : Colors.black54,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationToggle(ThemeData theme, bool isDark, BuildContext context) {
+    final notificationProvider = context.watch<NotificationProvider>();
+    final isEnabled = notificationProvider.isEnabled;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A2636) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(isDark ? 20 : 8),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withAlpha(20),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            isEnabled ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          isEnabled ? 'Notifications Enabled' : 'Notifications Disabled',
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 15,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+        subtitle: Text(
+          isEnabled ? 'You will receive push notifications' : 'No push notifications',
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white38 : Colors.black38,
+          ),
+        ),
+        trailing: Switch(
+          value: isEnabled,
+          onChanged: (value) async {
+            await notificationProvider.toggleNotifications(value);
+          },
+          activeThumbColor: theme.colorScheme.primary,
         ),
       ),
     );

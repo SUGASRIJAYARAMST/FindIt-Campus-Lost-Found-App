@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/archive_provider.dart';
+import '../../../core/routes/app_router.dart';
 import '../../../domain/models/item_model.dart';
 
 class ArchiveScreen extends StatefulWidget {
@@ -131,7 +132,9 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     final isLost = item.type == 'lost';
     final accentColor = isLost ? const Color(0xFFE53935) : const Color(0xFF43A047);
 
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, AppRouter.itemDetail, arguments: item.id),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -236,6 +239,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

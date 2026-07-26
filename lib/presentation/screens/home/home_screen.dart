@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -71,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (authProvider.user != null) {
       _userProvider.startListening(authProvider.user!.uid);
       _favoriteProvider.startListening(authProvider.user!.uid);
-      _itemProvider.startListening(currentUid: authProvider.user!.uid);
+      _itemProvider.startListening();
       _notificationProvider.initialize(authProvider.user!.uid);
       chatProvider.startListeningUnread(authProvider.user!.uid);
       await _userProvider.fetchUserData(authProvider.user!.uid);
@@ -81,9 +82,30 @@ class _HomeScreenState extends State<HomeScreen> {
       try {
         _itemProvider.migrateStatuses();
       } catch (_) {}
+      // try {
+      //   _itemProvider.cleanupSeedItems().then((_) {
+      //     _itemProvider.seedMatchTestData();
+      //   });
+      // } catch (_) {}
+      try {
+        _cleanupOldFeedback();
+      } catch (_) {}
       _checkIncompleteProfile();
       _showReferralPrompt();
     }
+  }
+
+  Future<void> _cleanupOldFeedback() async {
+    try {
+      final cutoff = DateTime.now().subtract(const Duration(days: 15));
+      final oldDocs = await FirebaseFirestore.instance
+          .collection('feedback')
+          .where('createdAt', isLessThan: Timestamp.fromDate(cutoff))
+          .get();
+      for (final doc in oldDocs.docs) {
+        await doc.reference.delete();
+      }
+    } catch (_) {}
   }
 
   void _checkIncompleteProfile() {

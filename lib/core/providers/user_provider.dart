@@ -40,17 +40,21 @@ class UserProvider extends ChangeNotifier {
 
   void startListening(String uid) {
     _userSub?.cancel();
-    _userSub = firestoreService.collection('users').doc(uid).snapshots().listen(
-      (doc) {
-        if (doc.exists && doc.data() != null) {
-          _userModel = UserModel.fromMap(doc.data() as Map<String, dynamic>);
-          notifyListeners();
-        }
-      },
-      onError: (e) {
-        debugPrint('User stream error: $e');
-      },
-    );
+    try {
+      _userSub = firestoreService.collection('users').doc(uid).snapshots().listen(
+        (doc) {
+          if (doc.exists && doc.data() != null) {
+            _userModel = UserModel.fromMap(doc.data() as Map<String, dynamic>);
+            notifyListeners();
+          }
+        },
+        onError: (e) {
+          debugPrint('User stream error: $e');
+        },
+      );
+    } catch (e) {
+      debugPrint('Failed to subscribe user: $e');
+    }
   }
 
   void stopListening() {

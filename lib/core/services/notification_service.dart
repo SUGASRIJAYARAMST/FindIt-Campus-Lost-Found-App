@@ -202,6 +202,19 @@ class NotificationService {
     }
   }
 
+  Future<bool> _isNotificationsEnabled(String uid) async {
+    try {
+      final doc = await firestoreService.document('users', uid);
+      if (doc.exists && doc.data() != null) {
+        final userData = doc.data() as Map<String, dynamic>;
+        return userData['notificationsEnabled'] as bool? ?? true;
+      }
+    } catch (e) {
+      debugPrint('Error checking notification preference: $e');
+    }
+    return true;
+  }
+
   Future<void> sendNotificationToUser({
     required String targetUid,
     required String title,
@@ -209,6 +222,12 @@ class NotificationService {
     Map<String, dynamic>? data,
   }) async {
     try {
+      // Check if user has notifications enabled
+      if (!await _isNotificationsEnabled(targetUid)) {
+        debugPrint('Notifications disabled for user: $targetUid');
+        return;
+      }
+
       final type = data?['type'] ?? 'system';
 
       // Always save to Firestore so notification appears in the notifications screen
